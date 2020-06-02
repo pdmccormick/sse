@@ -244,18 +244,18 @@ func (dec *Decoder) Decode(ev *Event) error {
 
 type Broadcaster struct {
 	mu sync.RWMutex
-	ws map[io.Writer]bool
+	ws map[io.Writer]chan<- error
 }
 
-func (br *Broadcaster) Add(w io.Writer) {
+func (br *Broadcaster) Add(w io.Writer, errc chan<- error) {
 	br.mu.Lock()
 	defer br.mu.Unlock()
 
 	if br.ws == nil {
-		br.ws = make(map[io.Writer]bool)
+		br.ws = make(map[io.Writer]chan<- error)
 	}
 
-	br.ws[w] = true
+	br.ws[w] = errc
 }
 
 func (br *Broadcaster) Remove(w io.Writer) {
@@ -279,8 +279,11 @@ func (br *Broadcaster) Write(data []byte) (int, error) {
 
 	wg := &sync.WaitGroup{}
 
-	for w := range br.ws {
-		w := w
+	for w, errc := range br.ws {
+		var (
+			w    = w
+			errc = errc
+		)
 
 		wg.Add(1)
 
@@ -292,6 +295,11 @@ func (br *Broadcaster) Write(data []byte) (int, error) {
 				defer br.mu.Unlock()
 
 				delete(br.ws, w)
+
+				if errc != nil {
+					errc <- err
+					close(errc)
+				}
 			}
 		}()
 	}

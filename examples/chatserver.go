@@ -110,7 +110,9 @@ func (p *Poster) handleEvents(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 
-	p.bus.Add(ew)
+	errc := make(chan error)
+
+	p.bus.Add(ew, errc)
 	defer p.bus.Remove(ew)
 
 	defer func() {
@@ -138,6 +140,9 @@ func (p *Poster) handleEvents(w http.ResponseWriter, r *http.Request) {
 	ev.WriteTo(&p.bus)
 
 	select {
+	case err := <-errc:
+		log.Printf("%s: error writing events: %s", id, err)
+
 	case <-r.Context().Done():
 		log.Printf("Connection closed for %s", id)
 	}
