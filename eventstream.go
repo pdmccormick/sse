@@ -110,6 +110,10 @@ func NewDecoder(r io.Reader) *Decoder {
 	return dec
 }
 
+func (dec *Decoder) Buffer(buf []byte, max int) {
+	dec.s.Buffer(buf, max)
+}
+
 func (dec *Decoder) More() bool {
 	if dec.hasNext && dec.err == nil {
 		return true
